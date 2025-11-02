@@ -12,7 +12,7 @@ np = HMMNumericalParameters(T = 10^4, m = 11, T0 = 100)
 
 sim = simulate_continuous(cp, np)
 
-@test cp isa Array{Float64}
+@test sim isa Array{Float64}
 
 #using Plots
 #plot(sim')
