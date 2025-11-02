@@ -1,6 +1,8 @@
 using HMMDiscretization
 using Test
 
-@testset "HMMDiscretization.jl" begin
-    # Write your tests here.
+include("examples/VAR.jl")
+
+@testset "Unit test of global estimation" begin
+    include("integrationtest.jl")
 end
