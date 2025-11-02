@@ -50,7 +50,7 @@ end
 function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractVector=zeros(dimnum(model)))
     @unpack T, T0 = numpar
     k = dimnum(model)
-    sim = Array{Float64,(k, T + T0)}(undef)
+    sim = Array{Float64}(undef,k, T + T0)
     for l in 1:k
         sim[l, 1] = y0[l]
     end

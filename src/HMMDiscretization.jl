@@ -9,7 +9,11 @@ using Distributions
 export 
     HMMContinuousSpaceModel,
     HMMPreallocatedContainers,
-    HMMNumericalParameters
+    HMMNumericalParameters,
+
+    dimnum,
+    simulate_continuous,
+    simulate_continuous!
 
 include("time_invariant.jl")
 
