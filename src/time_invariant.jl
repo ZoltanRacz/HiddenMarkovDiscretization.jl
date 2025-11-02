@@ -26,6 +26,8 @@ $(FIELDS)
     m::S
     "tolerance"
     ϵ::U = 10^-7
+    "maximal number of iterations"
+    maxiter::S = 10^5
 end
 
 """
@@ -69,3 +71,32 @@ function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedCont
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
+function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
+    @unpack m = numpar
+    clust = kmeans(ys,m)
+    d_state = assignments(clust)
+    state_count = counts(clust)
+
+    μ = Matrix(clust.centers')
+
+    Π = zeros(m,m)
+    for t in 2:size(ys,2)
+        Π[d_state[t-1],d_state[t]] += 1
+    end
+    state_count[d_state[end]] -= 1
+    for mi in 1:m
+        Π[mi,:] = Π[mi,:]./ state_count[mi]
+    end    
+
+    σ = vec(sqrt.(mean((ys .- clust.centers[:,d_state]).^2, dims = 2)))
+
+    return HMMDiscretizedParameters(Π, μ, σ)
+end
+
+function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_prev::HMMDiscretizedParameters = default_dp(numpar,ys))
+    return dp_prev
+    k = size(ys,1)
+    xs = similar(ys)
+
+    d
+end
