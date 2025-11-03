@@ -114,11 +114,12 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
     dif = 100.0
 
     while iter < maxiter && dif > ϵ
-        print((iter,dif))
+        println("iter is $iter,dif is $dif")
         E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
         M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
         dp_prev = deepcopy(dp_next)
+        println(dp_next)
         iter += 1
     end
 
@@ -193,8 +194,8 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
             μ_num = 0.0
             μ_denom = 0.0
             for t in 1:T
-                μ_num += ys[ki, t] * γs[ki, t]
-                μ_denom += γs[ki, t]
+                μ_num += ys[ki, t] * γs[mi, t]
+                μ_denom += γs[mi, t]
             end
             dp_next.μ[mi, ki] = μ_num / μ_denom
         end
@@ -204,7 +205,7 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         a = 0.0
         for mi in 1:m
             for t in 1:T
-                a += (ys[ki, t] - dp_next.μ[mi, ki])^2 * γs[ki, t]
+                a += (ys[ki, t] - dp_next.μ[mi, ki])^2 * γs[mi, t]
             end
         end
         dp_next.σ[ki] = sqrt(a / T)
