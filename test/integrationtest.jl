@@ -10,14 +10,14 @@ cp = VAR(B = [0.9 0.0; 0.0 0.9], Σ = [1.0 0.0; 0.0 1.0])
 
 #cp = VAR(B = [0.4 0.4; 0.4 0.4], Σ = [1.0 0.0; 0.0 1.0])
 
-np = HMMNumericalParameters(T = 10^2, N = 10^5, m = 11, T0 = 100)
+np = HMMNumericalParameters(T = 10^2, N = 10^4, m = 11, T0 = 100)
 
 sim = simulate_continuous(cp, np)
 
 d = discretization(np,sim)
 
 
-@test sim isa Array{Float64}
+@test sim isa Array{Float64, 3}
 @test d isa HMMDiscretization.HMMDiscretizedParameters{Float64}
 
 #using Plots

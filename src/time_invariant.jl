@@ -55,7 +55,7 @@ end
 
 KL(dp::HMMDiscretizedParameters) = dp.KL[1]
 
-function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractVector=zeros(dimnum(model), numpar.N))
+function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractArray=zeros(dimnum(model), numpar.N))
     @unpack T, T0, N = numpar
     k = dimnum(model)
     sim = Array{Float64}(undef, k, N, T + T0)
