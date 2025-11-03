@@ -100,8 +100,6 @@ end
 function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_prev::HMMDiscretizedParameters=default_dp(numpar, ys))
     @unpack maxiter, m, ϵ = numpar
 
-    return dp_prev
-
     k = size(ys, 1)
     T = size(ys, 2)
     dp_next = deepcopy(dp_prev)
@@ -110,23 +108,25 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
     γs = Array{Float64,2}(undef, m, T)
     γsums = Vector{Float64}(undef, T)
     φs = fill(Normal(), (m, k))
-    δs = Vector{Float64}(undef, m)
+    δs = Matrix{Float64}(undef, (1,m))
 
     iter = 1
     dif = 100.0
 
     while iter < maxiter && dif > ϵ
+        print((iter,dif))
         E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
-        M_step!(dp_next, αs, βs, γs, φs)
+        M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
         dp_prev = deepcopy(dp_next)
+        iter += 1
     end
 
     return dp_next
 end
 
 function φ(φs, ys, mi, t)
-    a = 0.0
+    a = 1.0
     for ki in axes(ys, 1)
         a *= pdf(φs[mi, ki], ys[ki, t])
     end
@@ -134,6 +134,9 @@ function φ(φs, ys, mi, t)
 end
 
 function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
+    T = size(ys,2)
+    k = size(ys,1)
+    m = size(αs,1)
     @unpack μ, Π, σ = dp_prev
     for ki in 1:k
         for mi in 1:m
@@ -142,11 +145,13 @@ function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
     end
 
     mul!(δs, ones(1, m), inv(UniformScaling(1) - Π + ones(m, m)))
-
+    #println((φs))
     for mi in 1:m
+    #    println(φ(φs, ys, mi, 1))
         αs[mi, 1] = φ(φs, ys, mi, 1) * δs[mi]
         βs[mi, end] = 1.0
     end
+    #println(αs[:,1])
     for t in 1:(T-1)
         for j in 1:m
             a = 0.0
@@ -156,6 +161,7 @@ function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
             αs[j, t+1] = a * φ(φs, ys, j, t + 1)
         end
     end
+    #println(αs[:,40])
     for t in (T-1):-1:1
         for k in 1:m
             b = 0.0
@@ -177,7 +183,11 @@ function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
     end
 end
 
-function M_step!(dp_next, αs, βs, γs, φs, dp_prev)
+function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
+    T = size(ys,2)
+    k = size(ys,1)
+    m = size(αs,1)
+
     for ki in 1:k
         for mi in 1:m
             μ_num = 0.0
@@ -214,6 +224,14 @@ function M_step!(dp_next, αs, βs, γs, φs, dp_prev)
         end
     end
 
-
+    ll = 0.0
+    for t in 1:T
+        llt = 0.0
+        for mi in 1:m
+            llt += δs[mi] * φ(φs, ys, mi, t)
+        end
+        ll += log(max(llt,10^-9))
+    end
+    dp_next.KL[1] = -ll/T
 
 end

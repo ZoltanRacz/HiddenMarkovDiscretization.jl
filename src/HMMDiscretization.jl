@@ -1,6 +1,6 @@
 module HMMDiscretization
 
-using LinearAlgebra: diagm, tr, norm, cond, diag
+using LinearAlgebra
 using Statistics: mean, var, cov, quantile
 using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation
