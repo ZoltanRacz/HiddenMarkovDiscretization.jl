@@ -1,6 +1,6 @@
 name = "HMMDiscretization"
 uuid = "39c49a46-f006-40e3-92b6-71c9dffd4e78"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Zoltán Rácz"]
 
 [deps]
