@@ -83,22 +83,31 @@ end
 
 function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
     @unpack m = numpar
-    clust = kmeans(ys, m)
+
+    ys_flat = hcat([ys[:, n, :] for n in axes(ys, 2)]...)
+    clust = kmeans(ys_flat, m)
     d_state = assignments(clust)
     state_count = counts(clust)
 
     μ = Matrix(clust.centers')
 
     Π = zeros(m, m)
-    for t in 2:size(ys, 2)
-        Π[d_state[t-1], d_state[t]] += 1
+    inds = LinearIndices((size(ys, 3), size(ys, 2)))
+
+    for n in axes(ys, 2)
+        state_count[d_state[inds[1, n]]] -= 1
+
+        for t in 2:size(ys, 3)
+            i = inds[t, n]
+            Π[d_state[i-1], d_state[i]] += 1
+        end
     end
-    state_count[d_state[end]] -= 1
+
     for mi in 1:m
         Π[mi, :] = Π[mi, :] ./ state_count[mi]
     end
 
-    σ = vec(sqrt.(mean((ys .- clust.centers[:, d_state]) .^ 2, dims=2)))
+    σ = vec(sqrt.(mean((ys_flat .- clust.centers[:, d_state]) .^ 2, dims=2)))
 
     return HMMDiscretizedParameters(Π, μ, σ, [999.0])
 end
