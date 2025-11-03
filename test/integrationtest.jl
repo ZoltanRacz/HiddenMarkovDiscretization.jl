@@ -18,7 +18,7 @@ d = discretization(np,sim)
 
 
 @test sim isa Array{Float64}
-@test sim isa HMMDiscretization.HMMDiscretizedParameters{Float64}
+@test d isa HMMDiscretization.HMMDiscretizedParameters{Float64}
 
 #using Plots
 #scatter(d.μ[:,1], d.μ[:,2])
