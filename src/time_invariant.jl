@@ -113,15 +113,14 @@ function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
 end
 
 function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_prev::HMMDiscretizedParameters=default_dp(numpar, ys))
-    @unpack maxiter, m, ϵ = numpar
+    @unpack maxiter, m, ϵ, N = numpar
 
     k = size(ys, 1)
-    T = size(ys, 2)
+    T = size(ys, 3)
     dp_next = deepcopy(dp_prev)
-    αs = Array{Float64,2}(undef, m, T)
-    βs = Array{Float64,2}(undef, m, T)
-    γs = Array{Float64,2}(undef, m, T)
-    γsums = Vector{Float64}(undef, T)
+    αs = Array{Float64,3}(undef, m, N, T)
+    βs = Array{Float64,3}(undef, m, N, T)
+    γs = Array{Float64,3}(undef, m, N, T)
     φs = fill(Normal(), (m, k))
     δs = Matrix{Float64}(undef, (1,m))
 
@@ -130,7 +129,7 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
 
     while iter < maxiter && dif > ϵ
         println("iter is $iter,dif is $dif")
-        E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
+        E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
         M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
         dp_prev = deepcopy(dp_next)
@@ -141,18 +140,19 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
     return dp_next
 end
 
-function φ(φs, ys, mi, t)
+function φ(φs, ys, mi, n, t)
     a = 1.0
     for ki in axes(ys, 1)
-        a *= pdf(φs[mi, ki], ys[ki, t])
+        a *= pdf(φs[mi, ki], ys[ki, n, t])
     end
     return a
 end
 
-function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
-    T = size(ys,2)
-    k = size(ys,1)
-    m = size(αs,1)
+function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
+    T = size(ys, 3)
+    N = size(ys, 2)
+    k = size(ys, 1)
+    m = size(αs, 1)
     @unpack μ, Π, σ = dp_prev
     for ki in 1:k
         for mi in 1:m
@@ -162,55 +162,66 @@ function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
 
     mul!(δs, ones(1, m), inv(UniformScaling(1) - Π + ones(m, m)))
     #println((φs))
-    for mi in 1:m
-    #    println(φ(φs, ys, mi, 1))
-        αs[mi, 1] = φ(φs, ys, mi, 1) * δs[mi]
-        βs[mi, end] = 1.0
+    for n in 1:N
+        for mi in 1:m
+            #    println(φ(φs, ys, mi, 1))
+            αs[mi, n, 1] = φ(φs, ys, mi, n, 1) * δs[mi]
+            βs[mi, n, end] = 1.0
+        end
     end
     #println(αs[:,1])
     for t in 1:(T-1)
-        for j in 1:m
-            a = 0.0
-            for k in 1:m
-                a += αs[k, t] * Π[k, j]
+        for n in 1:N
+            for j in 1:m
+                a = 0.0
+                for k in 1:m
+                    a += αs[k, n, t] * Π[k, j]
+                end
+                αs[j, n, t+1] = a * φ(φs, ys, j, n, t + 1)
             end
-            αs[j, t+1] = a * φ(φs, ys, j, t + 1)
         end
     end
     #println(αs[:,40])
     for t in (T-1):-1:1
-        for k in 1:m
-            b = 0.0
-            for j in 1:m
-                b += βs[j, t+1] * Π[k, j] * φ(φs, ys, j, t + 1)
+        for n in 1:N
+            for k in 1:m
+                b = 0.0
+                for j in 1:m
+                    b += βs[j, n, t+1] * Π[k, j] * φ(φs, ys, j, n, t + 1)
+                end
+                βs[k, n, t] = b
             end
-            βs[k, t] = b
         end
     end
     for t in 1:T
-        γsums[t] = 0.0
-        for k in 1:m
-            γs[k, t] = αs[k, t] * βs[k, t]
-            γsums[t] += γs[k, t]
-        end
-        for k in 1:m
-            γs[k, t] /= γsums[t]
+        for n in 1:N
+            γsums = 0.0
+            for k in 1:m
+                γs[k, n, t] = αs[k, n, t] * βs[k, n, t]
+                γsums += γs[k, n, t]
+            end
+            for k in 1:m
+                γs[k, n, t] /= γsums
+            end
         end
     end
 end
 
 function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
-    T = size(ys,2)
-    k = size(ys,1)
-    m = size(αs,1)
+    T = size(ys, 3)
+    N = size(ys, 2)
+    k = size(ys, 1)
+    m = size(αs, 1)
 
     for ki in 1:k
         for mi in 1:m
             μ_num = 0.0
             μ_denom = 0.0
             for t in 1:T
-                μ_num += ys[ki, t] * γs[mi, t]
-                μ_denom += γs[mi, t]
+                for n in 1:N
+                    μ_num += ys[ki, n, t] * γs[mi, n, t]
+                    μ_denom += γs[mi, n, t]
+                end
             end
             dp_next.μ[mi, ki] = μ_num / μ_denom
         end
@@ -220,10 +231,12 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         a = 0.0
         for mi in 1:m
             for t in 1:T
-                a += (ys[ki, t] - dp_next.μ[mi, ki])^2 * γs[mi, t]
+                for n in 1:N
+                    a += (ys[ki, n, t] - dp_next.μ[mi, ki])^2 * γs[mi, n, t]
+                end
             end
         end
-        dp_next.σ[ki] = sqrt(a / T)
+        dp_next.σ[ki] = sqrt(a / (T * N))
     end
 
     for k in 1:m
@@ -231,7 +244,9 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         for j in 1:m
             dp_next.Π[k, j] = 0.0
             for t in 1:(T-1)
-                dp_next.Π[k, j] += βs[j, t+1] * αs[k, t] * dp_prev.Π[k, j] * φ(φs, ys, j, t + 1)
+                for n in 1:N
+                    dp_next.Π[k, j] += βs[j, n, t+1] * αs[k, n, t] * dp_prev.Π[k, j] * φ(φs, ys, j, n, t + 1)
+                end
             end
             rowsum += dp_next.Π[k, j]
         end
@@ -242,12 +257,13 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
 
     ll = 0.0
     for t in 1:T
-        llt = 0.0
-        for mi in 1:m
-            llt += δs[mi] * φ(φs, ys, mi, t)
-        end
-        ll += log(max(llt,10^-9))
+        for n in 1:N
+            llt = 0.0
+            for mi in 1:m
+                llt += δs[mi] * φ(φs, ys, mi, n, t)
+            end
+            ll += log(max(llt, 10^-9))
+        end        
     end
-    dp_next.KL[1] = -ll/T
-
+    dp_next.KL[1] = -ll / (T * N)
 end
