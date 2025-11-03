@@ -22,6 +22,8 @@ $(FIELDS)
     T::S
     "number of time periods for burn-in"
     T0::S
+    "number of individuals to simulate"
+    N::S
     "number of discrete states"
     m::S
     "tolerance"
@@ -53,25 +55,29 @@ end
 
 KL(dp::HMMDiscretizedParameters) = dp.KL[1]
 
-function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractVector=zeros(dimnum(model)))
-    @unpack T, T0 = numpar
+function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractVector=zeros(dimnum(model), numpar.N))
+    @unpack T, T0, N = numpar
     k = dimnum(model)
-    sim = Array{Float64}(undef, k, T + T0)
-    for l in 1:k
-        sim[l, 1] = y0[l]
+    sim = Array{Float64}(undef, k, N, T + T0)
+    for n in 1:N
+        for l in 1:k
+            sim[l, n, 1] = y0[l, n]
+        end
     end
     for t in 2:(T+T0)
-        simulate_continuous!(sim, prealcont, model, t)
+        for n in 1:N
+            simulate_continuous!(sim, prealcont, model, n, t)
+        end
     end
 
-    return sim[:, (T0+1):end]
+    return sim[:, :, (T0+1):end]
 end
 
 function dimnum(model::HMMContinuousSpaceModel)
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
-function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedContainers, model::HMMContinuousSpaceModel, t::Integer)
+function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedContainers, model::HMMContinuousSpaceModel, n::Integer, t::Integer)
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
