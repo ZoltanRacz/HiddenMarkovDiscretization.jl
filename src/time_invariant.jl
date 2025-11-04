@@ -81,6 +81,37 @@ function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedCont
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
+function simulate_discrete(d::HMMDiscretizedParameters, numpar::HMMNumericalParameters)
+    @unpack μ, Π, σ = d
+    @unpack T, T0, N, m = numpar
+    k = length(σ)
+    xs = Array{Int64}(undef, N, T + T0)
+    ys = Array{Float64}(undef, k, N, T + T0)
+
+    x0_dist = Categorical(inv(UniformScaling(1) - d.Π' + ones(m, m)) * ones(m))
+    trans_dists = [Categorical(Π[i, :]) for i in axes(Π, 1)]
+    yx_dists = [Normal(μ[mi, ki], σ[ki]) for mi in axes(μ, 1), ki in axes(μ, 2)]
+
+    for n in 1:N
+        xs[n, 1] = rand(x0_dist)
+    end
+    for t in 2:(T+T0)
+        for n in 1:N
+            xs[n, t] = rand(trans_dists[xs[n, t-1]])
+        end
+    end
+
+    for t in 1:(T+T0)
+        for n in 1:N
+            for ki in 1:k
+                ys[ki, n, t] = rand(yx_dists[xs[n, t], ki])
+            end
+        end
+    end
+
+    return ys[:, :, (T0+1):end]
+end
+
 function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
     @unpack m = numpar
 
