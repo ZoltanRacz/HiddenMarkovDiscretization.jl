@@ -114,6 +114,7 @@ end
 
 function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
     @unpack m = numpar
+    T = size(ys, 3)
 
     ys_flat = hcat([ys[:, n, :] for n in axes(ys, 2)]...)
     clust = kmeans(ys_flat, m)
@@ -123,14 +124,13 @@ function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
     μ = Matrix(clust.centers')
 
     Π = zeros(m, m)
-    inds = LinearIndices((size(ys, 3), size(ys, 2)))
 
     for n in axes(ys, 2)
-        state_count[d_state[inds[1, n]]] -= 1
+        i0 = T*(n-1)
+        state_count[d_state[i0 + T]] -= 1
 
-        for t in 2:size(ys, 3)
-            i = inds[t, n]
-            Π[d_state[i-1], d_state[i]] += 1
+        for t in 2:T
+            Π[d_state[i0 + t-1], d_state[i0 + t]] += 1
         end
     end
 
