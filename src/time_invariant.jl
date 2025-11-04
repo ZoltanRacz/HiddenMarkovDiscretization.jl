@@ -122,7 +122,7 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
     βs = Array{Float64,3}(undef, m, N, T)
     γs = Array{Float64,3}(undef, m, N, T)
     φs = fill(Normal(), (m, k))
-    δs = Matrix{Float64}(undef, (1,m))
+    δs = Matrix{Float64}(undef, (1, m))
 
     iter = 1
     dif = 100.0
@@ -133,7 +133,6 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
         M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
         dp_prev = deepcopy(dp_next)
-        println(dp_next)
         iter += 1
     end
 
@@ -162,15 +161,12 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
     end
 
     mul!(δs, ones(1, m), inv(UniformScaling(1) - Π + ones(m, m)))
-    #println((φs))
     for n in 1:N
         for mi in 1:m
-            #    println(φ(φs, ys, mi, 1))
             αs[mi, n, 1] = max(φ(φs, ys, mi, n, 1) * δs[mi], αβfloor)
             βs[mi, n, end] = 1.0
         end
     end
-    #println(αs[:,1])
     for t in 1:(T-1)
         for n in 1:N
             for j in 1:m
@@ -182,7 +178,6 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
             end
         end
     end
-    #println(αs[:,40])
     for t in (T-1):-1:1
         for n in 1:N
             for k in 1:m
@@ -264,7 +259,7 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
                 llt += δs[mi] * φ(φs, ys, mi, n, t)
             end
             ll += log(max(llt, 10^-9))
-        end        
+        end
     end
     dp_next.KL[1] = -ll / (T * N)
 end
