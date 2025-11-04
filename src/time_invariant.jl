@@ -149,6 +149,7 @@ function φ(φs, ys, mi, n, t)
 end
 
 function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
+    αβfloor = 10^-7
     T = size(ys, 3)
     N = size(ys, 2)
     k = size(ys, 1)
@@ -165,7 +166,7 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
     for n in 1:N
         for mi in 1:m
             #    println(φ(φs, ys, mi, 1))
-            αs[mi, n, 1] = φ(φs, ys, mi, n, 1) * δs[mi]
+            αs[mi, n, 1] = max(φ(φs, ys, mi, n, 1) * δs[mi], αβfloor)
             βs[mi, n, end] = 1.0
         end
     end
@@ -177,7 +178,7 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
                 for k in 1:m
                     a += αs[k, n, t] * Π[k, j]
                 end
-                αs[j, n, t+1] = a * φ(φs, ys, j, n, t + 1)
+                αs[j, n, t+1] = max(a * φ(φs, ys, j, n, t + 1), αβfloor)
             end
         end
     end
@@ -189,7 +190,7 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
                 for j in 1:m
                     b += βs[j, n, t+1] * Π[k, j] * φ(φs, ys, j, n, t + 1)
                 end
-                βs[k, n, t] = b
+                βs[k, n, t] = max(b, αβfloor)
             end
         end
     end
