@@ -6,20 +6,28 @@ using Test
 
 include("examples/VAR.jl")
 
-cp = VAR(B = [0.9 0.0; 0.0 0.9], Σ = [1.0 0.0; 0.0 1.0])
+#cp = VAR(B = [0.9 0.0; 0.0 0.9], Σ = [1.0 0.0; 0.0 1.0])
 
-#cp = VAR(B = [0.4 0.4; 0.4 0.4], Σ = [1.0 0.0; 0.0 1.0])
+cp = VAR(B = [0.4 0.4; 0.4 0.4], Σ = [1.0 0.0; 0.0 1.0])
 
-np = HMMNumericalParameters(T = 5, N = 10000, m = 7, T0 = 100)
+np = HMMNumericalParameters(T = 10, N = 5000, m = 15, T0 = 100)
 
 sim = simulate_continuous(cp, np)
 
 d0 = HMMDiscretization.default_dp(np,sim)
 
 @test d0 isa HMMDiscretization.HMMDiscretizedParameters{Float64}
-@test maximum(abs.(sum(d0.Π, dims = 2) .- ones(np.m,1)))<0.01
+@test maximum(abs.(sum(d0.Π, dims = 2) .- ones(np.m,1)))<10^-5
 
 d = discretization(np,sim)
+
+simd = HMMDiscretization.simulate_discrete(d, np)
+
+simd0 = HMMDiscretization.simulate_discrete(d0, np)
+
+mc = HMMDiscretization.moment_comparison(sim,simd)
+
+mc0 = HMMDiscretization.moment_comparison(sim,simd0)
 
 
 @test sim isa Array{Float64, 3}

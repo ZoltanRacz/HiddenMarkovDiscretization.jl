@@ -6,6 +6,7 @@ using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation
 using Distributions
 using Clustering # for starting grid and transition matrix
+using DataFrames # output format in diagnostics
 
 
 export 
@@ -19,5 +20,6 @@ export
     discretization
 
 include("time_invariant.jl")
+include("diagnostics.jl")
 
 end
