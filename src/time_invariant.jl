@@ -202,8 +202,8 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
         for n in 1:N
             for j in 1:m
                 a = 0.0
-                for k in 1:m
-                    a += αs[k, n, t] * Π[k, j]
+                for jj in 1:m
+                    a += αs[jj, n, t] * Π[jj, j]
                 end
                 αs[j, n, t+1] = max(a * φ(φs, ys, j, n, t + 1), αβfloor)
             end
@@ -211,24 +211,24 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
     end
     for t in (T-1):-1:1
         for n in 1:N
-            for k in 1:m
+            for jj in 1:m
                 b = 0.0
                 for j in 1:m
-                    b += βs[j, n, t+1] * Π[k, j] * φ(φs, ys, j, n, t + 1)
+                    b += βs[j, n, t+1] * Π[jj, j] * φ(φs, ys, j, n, t + 1)
                 end
-                βs[k, n, t] = max(b, αβfloor)
+                βs[jj, n, t] = max(b, αβfloor)
             end
         end
     end
     for t in 1:T
         for n in 1:N
             γsums = 0.0
-            for k in 1:m
-                γs[k, n, t] = αs[k, n, t] * βs[k, n, t]
-                γsums += γs[k, n, t]
+            for j in 1:m
+                γs[j, n, t] = αs[j, n, t] * βs[j, n, t]
+                γsums += γs[j, n, t]
             end
-            for k in 1:m
-                γs[k, n, t] /= γsums
+            for j in 1:m
+                γs[j, n, t] /= γsums
             end
         end
     end
@@ -266,19 +266,19 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         dp_next.σ[ki] = sqrt(a / (T * N))
     end
 
-    for k in 1:m
+    for jj in 1:m
         rowsum = 0.0
         for j in 1:m
-            dp_next.Π[k, j] = 0.0
+            dp_next.Π[jj, j] = 0.0
             for t in 1:(T-1)
                 for n in 1:N
-                    dp_next.Π[k, j] += βs[j, n, t+1] * αs[k, n, t] * dp_prev.Π[k, j] * φ(φs, ys, j, n, t + 1)
+                    dp_next.Π[jj, j] += βs[j, n, t+1] * αs[jj, n, t] * dp_prev.Π[jj, j] * φ(φs, ys, j, n, t + 1)
                 end
             end
-            rowsum += dp_next.Π[k, j]
+            rowsum += dp_next.Π[jj, j]
         end
         for j in 1:m
-            dp_next.Π[k, j] /= rowsum
+            dp_next.Π[jj, j] /= rowsum
         end
     end
 
