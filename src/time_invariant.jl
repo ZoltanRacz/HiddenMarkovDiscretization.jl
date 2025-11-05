@@ -29,7 +29,7 @@ $(FIELDS)
     "tolerance"
     ϵ::U = 10^-7
     "maximal number of iterations"
-    maxiter::S = 10^5
+    maxiter::S = 10^3
 end
 
 """
@@ -152,17 +152,18 @@ function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_pr
     αs = Array{Float64,3}(undef, m, N, T)
     βs = Array{Float64,3}(undef, m, N, T)
     γs = Array{Float64,3}(undef, m, N, T)
+    αβsums = Array{Float64,2}(undef, N, T)
     φs = fill(Normal(), (m, k))
     δs = Matrix{Float64}(undef, (1, m))
 
     iter = 1
     dif = 100.0
 
-    while iter < maxiter && dif > ϵ
-        println("iter is $iter,dif is $dif")
-        E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
-        M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
+    while iter < maxiter && dif > ϵ        
+        E_step!(αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
+        M_step!(dp_next, αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
+        println("iter is $iter, KL is $(KL(dp_next)), dif is $dif")
         dp_prev = deepcopy(dp_next)
         iter += 1
     end
@@ -178,8 +179,8 @@ function φ(φs, ys, mi, n, t)
     return a
 end
 
-function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
-    αβfloor = 10^-7
+function E_step!(αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
+    αβfloor = 0.0 # 10^-8
     T = size(ys, 3)
     N = size(ys, 2)
     k = size(ys, 1)
@@ -222,19 +223,19 @@ function E_step!(αs, βs, γs, φs, δs, dp_prev, ys)
     end
     for t in 1:T
         for n in 1:N
-            γsums = 0.0
+            αβsums[n, t] = 0.0
             for j in 1:m
                 γs[j, n, t] = αs[j, n, t] * βs[j, n, t]
-                γsums += γs[j, n, t]
+                αβsums[n, t] += γs[j, n, t]
             end
             for j in 1:m
-                γs[j, n, t] /= γsums
+                γs[j, n, t] /= αβsums[n, t]
             end
         end
     end
 end
 
-function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
+function M_step!(dp_next, αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
     T = size(ys, 3)
     N = size(ys, 2)
     k = size(ys, 1)
@@ -272,7 +273,7 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
             dp_next.Π[jj, j] = 0.0
             for t in 1:(T-1)
                 for n in 1:N
-                    dp_next.Π[jj, j] += βs[j, n, t+1] * αs[jj, n, t] * dp_prev.Π[jj, j] * φ(φs, ys, j, n, t + 1)
+                    dp_next.Π[jj, j] += βs[j, n, t+1] * αs[jj, n, t] * dp_prev.Π[jj, j] * φ(φs, ys, j, n, t + 1)/αβsums[n,t]
                 end
             end
             rowsum += dp_next.Π[jj, j]
