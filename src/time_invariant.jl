@@ -10,6 +10,12 @@ $(TYPEDEF)
 Supplies containers to simulate continuous space model."""
 abstract type HMDPreallocatedContainers end
 
+struct EmptyHMDPreallocatedContainers <: HMDPreallocatedContainers end
+
+function HMDPreallocatedContainers(model::HMDContinuousSpaceModel)
+    return EmptyHMDPreallocatedContainers()
+end
+
 """
 $(TYPEDEF)
 # Description
