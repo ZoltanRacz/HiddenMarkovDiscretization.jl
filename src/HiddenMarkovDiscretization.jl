@@ -1,4 +1,4 @@
-module HMMDiscretization
+module HiddenMarkovDiscretization
 
 using LinearAlgebra
 using Statistics: mean, var, cov, quantile
@@ -10,9 +10,9 @@ using DataFrames # output format in diagnostics
 
 
 export 
-    HMMContinuousSpaceModel,
-    HMMPreallocatedContainers,
-    HMMNumericalParameters,
+    HMDContinuousSpaceModel,
+    HMDPreallocatedContainers,
+    HMDNumericalParameters,
 
     dimnum,
     simulate_continuous,

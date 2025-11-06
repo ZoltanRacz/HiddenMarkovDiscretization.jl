@@ -1,4 +1,4 @@
-using HMMDiscretization
+using HiddenMarkovDiscretization
 using Test
 
 include("examples/VAR.jl")

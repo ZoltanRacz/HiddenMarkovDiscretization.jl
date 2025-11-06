@@ -3,14 +3,14 @@ using Distributions
 using Random
 using LinearAlgebra
 
-@with_kw struct VAR{T<:AbstractFloat} <: HMMContinuousSpaceModel
+@with_kw struct VAR{T<:AbstractFloat} <: HMDContinuousSpaceModel
     "coefficient matrix"
     B::Array{T,2}
     "error terms"
     Σ::Array{T,2} = Matrix(Diagonal(ones(size(B, 1))))
 end
 
-struct VARPrealCont{T<:AbstractFloat} <: HMMPreallocatedContainers
+struct VARPrealCont{T<:AbstractFloat} <: HMDPreallocatedContainers
     "y_{t-1}"
     y0::Vector{T}
     "without shock"
@@ -19,15 +19,15 @@ struct VARPrealCont{T<:AbstractFloat} <: HMMPreallocatedContainers
     ε::Vector{T}
 end
 
-function HMMDiscretization.dimnum(model::VAR)
+function HiddenMarkovDiscretization.dimnum(model::VAR)
     return size(model.B, 1)
 end
 
-function HMMDiscretization.HMMPreallocatedContainers(model::VAR)
+function HiddenMarkovDiscretization.HMDPreallocatedContainers(model::VAR)
     return VARPrealCont(zeros(dimnum(model)), zeros(dimnum(model)), zeros(dimnum(model)))
 end
 
-function HMMDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, n::Integer, t::Integer)
+function HiddenMarkovDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, n::Integer, t::Integer)
     @unpack B, Σ = model
     @unpack y0, ybar, ε = prealcont
     k = dimnum(model)

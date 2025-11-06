@@ -1,6 +1,6 @@
-name = "HMMDiscretization"
+name = "HiddenMarkovDiscretization"
 uuid = "39c49a46-f006-40e3-92b6-71c9dffd4e78"
-version = "1.0.0"
+version = "1.0.3"
 authors = ["Zoltán Rácz"]
 
 [deps]
@@ -20,7 +20,7 @@ DocStringExtensions = "0.9.5"
 LinearAlgebra = "1.10"
 Parameters = "0.12.3"
 Statistics = "1.10"
-julia = "1.6.7"
+julia = "1.10.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
