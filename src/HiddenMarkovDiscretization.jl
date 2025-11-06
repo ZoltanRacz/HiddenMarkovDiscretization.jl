@@ -1,4 +1,4 @@
-module HMMDiscretization
+module HiddenMarkovDiscretization
 
 using LinearAlgebra
 using Statistics: mean, var, cov, quantile

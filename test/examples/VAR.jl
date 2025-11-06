@@ -19,15 +19,15 @@ struct VARPrealCont{T<:AbstractFloat} <: HMMPreallocatedContainers
     ε::Vector{T}
 end
 
-function HMMDiscretization.dimnum(model::VAR)
+function HiddenMarkovDiscretization.dimnum(model::VAR)
     return size(model.B, 1)
 end
 
-function HMMDiscretization.HMMPreallocatedContainers(model::VAR)
+function HiddenMarkovDiscretization.HMMPreallocatedContainers(model::VAR)
     return VARPrealCont(zeros(dimnum(model)), zeros(dimnum(model)), zeros(dimnum(model)))
 end
 
-function HMMDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, n::Integer, t::Integer)
+function HiddenMarkovDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, n::Integer, t::Integer)
     @unpack B, Σ = model
     @unpack y0, ybar, ε = prealcont
     k = dimnum(model)
