@@ -27,14 +27,14 @@ function HMMDiscretization.HMMPreallocatedContainers(model::VAR)
     return VARPrealCont(zeros(dimnum(model)), zeros(dimnum(model)), zeros(dimnum(model)))
 end
 
-function HMMDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, t::Integer)
+function HMMDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::VARPrealCont, model::VAR, n::Integer, t::Integer)
     @unpack B, Σ = model
     @unpack y0, ybar, ε = prealcont
     k = dimnum(model)
     errordistr = MvNormal(Σ)
 
     for l in 1:k
-        y0[l] = sim[l, t-1]
+        y0[l] = sim[l, n, t-1]
     end
 
     mul!(ybar, B, y0)
@@ -42,7 +42,7 @@ function HMMDiscretization.simulate_continuous!(sim::AbstractArray, prealcont::V
     rand!(errordistr, ε)
     
     for l in 1:k
-        sim[l, t] = ybar[l] + ε[l]
+        sim[l, n, t] = ybar[l] + ε[l]
     end
 end
 

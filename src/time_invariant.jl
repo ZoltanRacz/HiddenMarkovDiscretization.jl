@@ -22,12 +22,14 @@ $(FIELDS)
     T::S
     "number of time periods for burn-in"
     T0::S
+    "number of individuals to simulate"
+    N::S
     "number of discrete states"
     m::S
     "tolerance"
     ϵ::U = 10^-7
     "maximal number of iterations"
-    maxiter::S = 10^5
+    maxiter::S = 10^3
 end
 
 """
@@ -53,91 +55,136 @@ end
 
 KL(dp::HMMDiscretizedParameters) = dp.KL[1]
 
-function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractVector=zeros(dimnum(model)))
-    @unpack T, T0 = numpar
+function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractArray=zeros(dimnum(model), numpar.N))
+    @unpack T, T0, N = numpar
     k = dimnum(model)
-    sim = Array{Float64}(undef, k, T + T0)
-    for l in 1:k
-        sim[l, 1] = y0[l]
+    sim = Array{Float64}(undef, k, N, T + T0)
+    for n in 1:N
+        for l in 1:k
+            sim[l, n, 1] = y0[l, n]
+        end
     end
     for t in 2:(T+T0)
-        simulate_continuous!(sim, prealcont, model, t)
+        for n in 1:N
+            simulate_continuous!(sim, prealcont, model, n, t)
+        end
     end
 
-    return sim[:, (T0+1):end]
+    return sim[:, :, (T0+1):end]
 end
 
 function dimnum(model::HMMContinuousSpaceModel)
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
-function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedContainers, model::HMMContinuousSpaceModel, t::Integer)
+function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedContainers, model::HMMContinuousSpaceModel, n::Integer, t::Integer)
     throw(error("a separate method has to be written for $(typeof(model))"))
+end
+
+function simulate_discrete(d::HMMDiscretizedParameters, numpar::HMMNumericalParameters)
+    @unpack μ, Π, σ = d
+    @unpack T, T0, N, m = numpar
+    k = length(σ)
+    xs = Array{Int64}(undef, N, T + T0)
+    ys = Array{Float64}(undef, k, N, T + T0)
+
+    x0_dist = Categorical(inv(UniformScaling(1) - d.Π' + ones(m, m)) * ones(m))
+    trans_dists = [Categorical(Π[i, :]) for i in axes(Π, 1)]
+    yx_dists = [Normal(μ[mi, ki], σ[ki]) for mi in axes(μ, 1), ki in axes(μ, 2)]
+
+    for n in 1:N
+        xs[n, 1] = rand(x0_dist)
+    end
+    for t in 2:(T+T0)
+        for n in 1:N
+            xs[n, t] = rand(trans_dists[xs[n, t-1]])
+        end
+    end
+
+    for t in 1:(T+T0)
+        for n in 1:N
+            for ki in 1:k
+                ys[ki, n, t] = rand(yx_dists[xs[n, t], ki])
+            end
+        end
+    end
+
+    return ys[:, :, (T0+1):end]
 end
 
 function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
     @unpack m = numpar
-    clust = kmeans(ys, m)
+    T = size(ys, 3)
+
+    ys_flat = hcat([ys[:, n, :] for n in axes(ys, 2)]...)
+    clust = kmeans(ys_flat, m)
     d_state = assignments(clust)
     state_count = counts(clust)
 
     μ = Matrix(clust.centers')
 
     Π = zeros(m, m)
-    for t in 2:size(ys, 2)
-        Π[d_state[t-1], d_state[t]] += 1
+
+    for n in axes(ys, 2)
+        i0 = T*(n-1)
+        state_count[d_state[i0 + T]] -= 1
+
+        for t in 2:T
+            Π[d_state[i0 + t-1], d_state[i0 + t]] += 1
+        end
     end
-    state_count[d_state[end]] -= 1
+
     for mi in 1:m
         Π[mi, :] = Π[mi, :] ./ state_count[mi]
     end
 
-    σ = vec(sqrt.(mean((ys .- clust.centers[:, d_state]) .^ 2, dims=2)))
+    σ = vec(sqrt.(mean((ys_flat .- clust.centers[:, d_state]) .^ 2, dims=2)))
 
     return HMMDiscretizedParameters(Π, μ, σ, [999.0])
 end
 
 function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_prev::HMMDiscretizedParameters=default_dp(numpar, ys))
-    @unpack maxiter, m, ϵ = numpar
+    @unpack maxiter, m, ϵ, N = numpar
 
     k = size(ys, 1)
-    T = size(ys, 2)
+    T = size(ys, 3)
     dp_next = deepcopy(dp_prev)
-    αs = Array{Float64,2}(undef, m, T)
-    βs = Array{Float64,2}(undef, m, T)
-    γs = Array{Float64,2}(undef, m, T)
-    γsums = Vector{Float64}(undef, T)
+    αs = Array{Float64,3}(undef, m, N, T)
+    βs = Array{Float64,3}(undef, m, N, T)
+    γs = Array{Float64,3}(undef, m, N, T)
+    αβsums = Array{Float64,2}(undef, N, T)
     φs = fill(Normal(), (m, k))
-    δs = Matrix{Float64}(undef, (1,m))
+    δs = Matrix{Float64}(undef, (1, m))
 
     iter = 1
     dif = 100.0
 
-    while iter < maxiter && dif > ϵ
-        println("iter is $iter,dif is $dif")
-        E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
-        M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
+    while iter < maxiter && dif > ϵ        
+        E_step!(αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
+        M_step!(dp_next, αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
         dif = abs(KL(dp_next) - KL(dp_prev))
+        println("iter is $iter, KL is $(KL(dp_next)), dif is $dif")
         dp_prev = deepcopy(dp_next)
-        println(dp_next)
         iter += 1
     end
 
     return dp_next
 end
 
-function φ(φs, ys, mi, t)
+function φ(φs, ys, mi, n, t)
     a = 1.0
     for ki in axes(ys, 1)
-        a *= pdf(φs[mi, ki], ys[ki, t])
+        a *= pdf(φs[mi, ki], ys[ki, n, t])
     end
     return a
 end
 
-function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
-    T = size(ys,2)
-    k = size(ys,1)
-    m = size(αs,1)
+function E_step!(αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
+    αβfloor = 0.0 # 10^-8
+    T = size(ys, 3)
+    N = size(ys, 2)
+    k = size(ys, 1)
+    m = size(αs, 1)
     @unpack μ, Π, σ = dp_prev
     for ki in 1:k
         for mi in 1:m
@@ -146,56 +193,63 @@ function E_step!(αs, βs, γs, γsums, φs, δs, dp_prev, ys)
     end
 
     mul!(δs, ones(1, m), inv(UniformScaling(1) - Π + ones(m, m)))
-    #println((φs))
-    for mi in 1:m
-    #    println(φ(φs, ys, mi, 1))
-        αs[mi, 1] = φ(φs, ys, mi, 1) * δs[mi]
-        βs[mi, end] = 1.0
-    end
-    #println(αs[:,1])
-    for t in 1:(T-1)
-        for j in 1:m
-            a = 0.0
-            for k in 1:m
-                a += αs[k, t] * Π[k, j]
-            end
-            αs[j, t+1] = a * φ(φs, ys, j, t + 1)
+    for n in 1:N
+        for mi in 1:m
+            αs[mi, n, 1] = max(φ(φs, ys, mi, n, 1) * δs[mi], αβfloor)
+            βs[mi, n, end] = 1.0
         end
     end
-    #println(αs[:,40])
-    for t in (T-1):-1:1
-        for k in 1:m
-            b = 0.0
+    for t in 1:(T-1)
+        for n in 1:N
             for j in 1:m
-                b += βs[j, t+1] * Π[k, j] * φ(φs, ys, j, t + 1)
+                a = 0.0
+                for jj in 1:m
+                    a += αs[jj, n, t] * Π[jj, j]
+                end
+                αs[j, n, t+1] = max(a * φ(φs, ys, j, n, t + 1), αβfloor)
             end
-            βs[k, t] = b
+        end
+    end
+    for t in (T-1):-1:1
+        for n in 1:N
+            for jj in 1:m
+                b = 0.0
+                for j in 1:m
+                    b += βs[j, n, t+1] * Π[jj, j] * φ(φs, ys, j, n, t + 1)
+                end
+                βs[jj, n, t] = max(b, αβfloor)
+            end
         end
     end
     for t in 1:T
-        γsums[t] = 0.0
-        for k in 1:m
-            γs[k, t] = αs[k, t] * βs[k, t]
-            γsums[t] += γs[k, t]
-        end
-        for k in 1:m
-            γs[k, t] /= γsums[t]
+        for n in 1:N
+            αβsums[n, t] = 0.0
+            for j in 1:m
+                γs[j, n, t] = αs[j, n, t] * βs[j, n, t]
+                αβsums[n, t] += γs[j, n, t]
+            end
+            for j in 1:m
+                γs[j, n, t] /= αβsums[n, t]
+            end
         end
     end
 end
 
-function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
-    T = size(ys,2)
-    k = size(ys,1)
-    m = size(αs,1)
+function M_step!(dp_next, αs, βs, γs, αβsums, φs, δs, dp_prev, ys)
+    T = size(ys, 3)
+    N = size(ys, 2)
+    k = size(ys, 1)
+    m = size(αs, 1)
 
     for ki in 1:k
         for mi in 1:m
             μ_num = 0.0
             μ_denom = 0.0
             for t in 1:T
-                μ_num += ys[ki, t] * γs[mi, t]
-                μ_denom += γs[mi, t]
+                for n in 1:N
+                    μ_num += ys[ki, n, t] * γs[mi, n, t]
+                    μ_denom += γs[mi, n, t]
+                end
             end
             dp_next.μ[mi, ki] = μ_num / μ_denom
         end
@@ -205,34 +259,39 @@ function M_step!(dp_next, αs, βs, γs, φs, δs, dp_prev, ys)
         a = 0.0
         for mi in 1:m
             for t in 1:T
-                a += (ys[ki, t] - dp_next.μ[mi, ki])^2 * γs[mi, t]
+                for n in 1:N
+                    a += (ys[ki, n, t] - dp_next.μ[mi, ki])^2 * γs[mi, n, t]
+                end
             end
         end
-        dp_next.σ[ki] = sqrt(a / T)
+        dp_next.σ[ki] = sqrt(a / (T * N))
     end
 
-    for k in 1:m
+    for jj in 1:m
         rowsum = 0.0
         for j in 1:m
-            dp_next.Π[k, j] = 0.0
+            dp_next.Π[jj, j] = 0.0
             for t in 1:(T-1)
-                dp_next.Π[k, j] += βs[j, t+1] * αs[k, t] * dp_prev.Π[k, j] * φ(φs, ys, j, t + 1)
+                for n in 1:N
+                    dp_next.Π[jj, j] += βs[j, n, t+1] * αs[jj, n, t] * dp_prev.Π[jj, j] * φ(φs, ys, j, n, t + 1)/αβsums[n,t]
+                end
             end
-            rowsum += dp_next.Π[k, j]
+            rowsum += dp_next.Π[jj, j]
         end
         for j in 1:m
-            dp_next.Π[k, j] /= rowsum
+            dp_next.Π[jj, j] /= rowsum
         end
     end
 
     ll = 0.0
     for t in 1:T
-        llt = 0.0
-        for mi in 1:m
-            llt += δs[mi] * φ(φs, ys, mi, t)
+        for n in 1:N
+            llt = 0.0
+            for mi in 1:m
+                llt += δs[mi] * φ(φs, ys, mi, n, t)
+            end
+            ll += log(max(llt, 10^-9))
         end
-        ll += log(max(llt,10^-9))
     end
-    dp_next.KL[1] = -ll/T
-
+    dp_next.KL[1] = -ll / (T * N)
 end
