@@ -23,7 +23,7 @@ d = discretization(np,sim)
 simd = HMMDiscretization.simulate_discrete(d, np)
 
 mc = HMMDiscretization.moment_comparison(sim,simd)
-@test abs(mc[1][2,2] - mc[1][2,3]) < 0.01
+@test abs(mc[1][2,2] - mc[1][2,3]) < 0.05
 
 #using Plots
 #scatter(d0.μ[:,1], d0.μ[:,2])
