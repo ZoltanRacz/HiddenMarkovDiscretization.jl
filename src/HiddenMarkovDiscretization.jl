@@ -10,9 +10,9 @@ using DataFrames # output format in diagnostics
 
 
 export 
-    HMMContinuousSpaceModel,
-    HMMPreallocatedContainers,
-    HMMNumericalParameters,
+    HMDContinuousSpaceModel,
+    HMDPreallocatedContainers,
+    HMDNumericalParameters,
 
     dimnum,
     simulate_continuous,

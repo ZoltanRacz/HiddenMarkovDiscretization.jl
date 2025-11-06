@@ -7,18 +7,18 @@ include("examples/VAR.jl")
 
 cp = VAR(B = [0.7 0.2; 0.2 0.7], Σ = [1.0 0.0; 0.0 1.0])
 
-np = HMMNumericalParameters(T = 4, N = 10000, m = 5, T0 = 100)
+np = HMDNumericalParameters(T = 4, N = 10000, m = 5, T0 = 100)
 
 sim = simulate_continuous(cp, np)
 @test sim isa Array{Float64, 3}
 
 d0 = HiddenMarkovDiscretization.default_dp(np,sim)
 
-@test d0 isa HiddenMarkovDiscretization.HMMDiscretizedParameters{Float64}
+@test d0 isa HiddenMarkovDiscretization.HMDDiscretizedParameters{Float64}
 @test maximum(abs.(sum(d0.Π, dims = 2) .- ones(np.m,1)))<10^-5
 
 d = discretization(np,sim)
-@test d isa HiddenMarkovDiscretization.HMMDiscretizedParameters{Float64}
+@test d isa HiddenMarkovDiscretization.HMDDiscretizedParameters{Float64}
 
 simd = HiddenMarkovDiscretization.simulate_discrete(d, np)
 

@@ -2,13 +2,13 @@
 $(TYPEDEF)
 # Description
 Supplies parameters to the continuous space model to be discretized."""
-abstract type HMMContinuousSpaceModel end
+abstract type HMDContinuousSpaceModel end
 
 """
 $(TYPEDEF)
 # Description
 Supplies containers to simulate continuous space model."""
-abstract type HMMPreallocatedContainers end
+abstract type HMDPreallocatedContainers end
 
 """
 $(TYPEDEF)
@@ -17,7 +17,7 @@ Stores numerical parameters for the discretization procedure.
 # Fields
 $(FIELDS)
 """
-@with_kw struct HMMNumericalParameters{S<:Integer,U<:AbstractFloat}
+@with_kw struct HMDNumericalParameters{S<:Integer,U<:AbstractFloat}
     "number of time periods to simulate, excluding burn-in"
     T::S
     "number of time periods for burn-in"
@@ -42,7 +42,7 @@ Stores parameters of a discretized Hidden Markov Model.
 # Fields
 $(FIELDS)
 """
-@with_kw struct HMMDiscretizedParameters{T<:AbstractFloat}
+@with_kw struct HMDDiscretizedParameters{T<:AbstractFloat}
     "m*m transition matrix between discrete states. Π[k,j] denotes the P(x_{t+1} = j | x_{t} = k)"
     Π::Array{T,2}
     "m*k matrix containing the k-long grid for each discrete states"
@@ -53,9 +53,9 @@ $(FIELDS)
     KL::Vector{T}
 end
 
-KL(dp::HMMDiscretizedParameters) = dp.KL[1]
+KL(dp::HMDDiscretizedParameters) = dp.KL[1]
 
-function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumericalParameters; prealcont::HMMPreallocatedContainers=HMMPreallocatedContainers(model), y0::AbstractArray=zeros(dimnum(model), numpar.N))
+function simulate_continuous(model::HMDContinuousSpaceModel, numpar::HMDNumericalParameters; prealcont::HMDPreallocatedContainers=HMDPreallocatedContainers(model), y0::AbstractArray=zeros(dimnum(model), numpar.N))
     @unpack T, T0, N = numpar
     k = dimnum(model)
     sim = Array{Float64}(undef, k, N, T + T0)
@@ -73,15 +73,15 @@ function simulate_continuous(model::HMMContinuousSpaceModel, numpar::HMMNumerica
     return sim[:, :, (T0+1):end]
 end
 
-function dimnum(model::HMMContinuousSpaceModel)
+function dimnum(model::HMDContinuousSpaceModel)
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
-function simulate_continuous!(sim::AbstractArray, prealcont::HMMPreallocatedContainers, model::HMMContinuousSpaceModel, n::Integer, t::Integer)
+function simulate_continuous!(sim::AbstractArray, prealcont::HMDPreallocatedContainers, model::HMDContinuousSpaceModel, n::Integer, t::Integer)
     throw(error("a separate method has to be written for $(typeof(model))"))
 end
 
-function simulate_discrete(d::HMMDiscretizedParameters, numpar::HMMNumericalParameters)
+function simulate_discrete(d::HMDDiscretizedParameters, numpar::HMDNumericalParameters)
     @unpack μ, Π, σ = d
     @unpack T, T0, N, m = numpar
     k = length(σ)
@@ -112,7 +112,7 @@ function simulate_discrete(d::HMMDiscretizedParameters, numpar::HMMNumericalPara
     return ys[:, :, (T0+1):end]
 end
 
-function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
+function default_dp(numpar::HMDNumericalParameters, ys::AbstractArray)
     @unpack m = numpar
     T = size(ys, 3)
 
@@ -140,10 +140,10 @@ function default_dp(numpar::HMMNumericalParameters, ys::AbstractArray)
 
     σ = vec(sqrt.(mean((ys_flat .- clust.centers[:, d_state]) .^ 2, dims=2)))
 
-    return HMMDiscretizedParameters(Π, μ, σ, [999.0])
+    return HMDDiscretizedParameters(Π, μ, σ, [999.0])
 end
 
-function discretization(numpar::HMMNumericalParameters, ys::AbstractArray; dp_prev::HMMDiscretizedParameters=default_dp(numpar, ys))
+function discretization(numpar::HMDNumericalParameters, ys::AbstractArray; dp_prev::HMDDiscretizedParameters=default_dp(numpar, ys))
     @unpack maxiter, m, ϵ, N = numpar
 
     k = size(ys, 1)
