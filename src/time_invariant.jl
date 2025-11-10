@@ -143,7 +143,18 @@ function default_dp(numpar::HMDNumericalParameters, ys::AbstractArray)
     return HMDDiscretizedParameters(Π, μ, σ, [999.0])
 end
 
-function discretization(numpar::HMDNumericalParameters, ys::AbstractArray; dp_prev::HMDDiscretizedParameters=default_dp(numpar, ys))
+"""
+$(TYPEDSIGNATURES)
+
+Discretizes a Markov process given numerical parameters and a simulated sample
+
+# Arguments
+## Positional arguments
+
+* `np`: Numerical parameters supplied as an instance of  [`HMDNumericalParameters`](@ref)
+* `ys`: a `k * N * T` dimensional array containing a simulated sample of the 
+"""
+function discretization(np::HMDNumericalParameters, ys::AbstractArray; dp_prev::HMDDiscretizedParameters=default_dp(numpar, ys))
     @unpack maxiter, m, ϵ, N = numpar
 
     k = size(ys, 1)
